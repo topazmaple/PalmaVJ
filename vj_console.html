@@ -1,0 +1,1494 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VJ Console</title>
+<style>
+  * { box-sizing:border-box; }
+  :root{
+    --bg:#000000;
+    --panel:#0c0f24;
+    --panel-border:#232a52;
+    --cyan:#07EBE9;
+    --magenta:#F71E5C;
+    --navy:#101430;
+    --gray:#DFE1DF;
+    --text:#DFE1DF;
+    --text-dim:#7d8199;
+  }
+  html,body { margin:0; padding:0; background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Segoe UI",sans-serif; }
+  h1 { font-size:16px; margin:0; color:var(--cyan); letter-spacing:1.5px; font-weight:700; }
+  h2 { font-size:10.5px; margin:0 0 6px; color:var(--cyan); text-transform:uppercase; letter-spacing:1px; }
+  h3 { font-size:11px; margin:8px 0 5px; color:var(--gray); }
+  .topbar { display:flex; align-items:center; justify-content:space-between; padding:8px 14px;
+    background:var(--navy); border-bottom:1px solid var(--panel-border); position:sticky; top:0; z-index:5; flex-wrap:wrap; gap:8px; }
+  .topbar .actions { display:flex; gap:6px; flex-wrap:wrap; }
+  .tabs { display:flex; gap:4px; }
+  .tabBtn { background:transparent; border:1px solid var(--panel-border); color:var(--text-dim); }
+  .tabBtn.active { background:var(--cyan); color:#04262b; border-color:var(--cyan); font-weight:700; }
+
+  .wrap { display:grid; grid-template-columns: 280px 1fr 280px; gap:8px; padding:8px; align-items:start; }
+  #screenSettings.wrap { grid-template-columns: 1fr 300px; }
+  .monitorRow { grid-column: 1 / -1; }
+  @media (max-width:1300px){ #screenPerf.wrap{ grid-template-columns:280px 1fr; } #screenPerf .colC{ grid-column:1 / -1; } }
+  @media (max-width:1300px){ #screenSettings.wrap{ grid-template-columns:1fr; } }
+  @media (max-width:900px){ .wrap{ grid-template-columns:1fr !important; } }
+  .card { background:var(--panel); border:1px solid var(--panel-border); border-radius:10px; padding:9px 11px; margin-bottom:8px; }
+  .hint { color:var(--text-dim); font-size:10.5px; line-height:1.45; margin:2px 0 6px; }
+
+  button { background:var(--navy); color:var(--text); border:1px solid var(--panel-border); border-radius:6px; padding:6px 9px;
+    font-size:11.5px; cursor:pointer; }
+  button:hover { background:#1a2050; }
+  button.primary { background:var(--cyan); border-color:var(--cyan); color:#04262b; font-weight:600; }
+  button.primary:hover { background:#3ff2f0; }
+  button.active { background:var(--magenta); border-color:var(--magenta); color:#fff; }
+  button.danger { background:#3a0f1e; border-color:var(--magenta); color:#ff9db8; }
+  button.learning { background:var(--navy); border-color:var(--magenta); color:var(--magenta); animation:pulse 1s infinite; }
+  button.small { padding:4px 7px; font-size:10px; }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.4;} }
+  .row { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+  .row.between { justify-content:space-between; }
+  input[type=range] { width:100%; accent-color:var(--cyan); }
+  select, input[type=number] { background:var(--navy); color:var(--text); border:1px solid var(--panel-border); border-radius:5px; padding:5px; font-size:11.5px; }
+
+  /* Monitor */
+  #monitorWrap { position:relative; background:#000; border-radius:8px; overflow:hidden; border:1px solid var(--panel-border); max-width:900px; margin:0 auto; }
+  #monitor { width:100%; height:auto; display:block; }
+  #monitorWrap .badge { position:absolute; top:6px; left:6px; background:rgba(0,0,0,.6); padding:2px 7px;
+    border-radius:5px; font-size:10px; color:var(--magenta); }
+
+  /* Clip grid */
+  #clipGrid { display:grid; grid-template-columns:repeat(auto-fill, minmax(62px,1fr)); gap:5px; margin-top:8px; }
+  .clipTile { position:relative; aspect-ratio:16/10; background:#000; border-radius:5px; overflow:hidden;
+    border:2px solid var(--panel-border); cursor:pointer; }
+  .clipTile video { width:100%; height:100%; object-fit:cover; display:block; pointer-events:none; }
+  .clipTile .num { position:absolute; top:1px; left:3px; font-size:8.5px; font-weight:700; color:#fff;
+    text-shadow:0 0 4px #000; }
+  .clipTile .name { position:absolute; bottom:0; left:0; right:0; font-size:7px; padding:1px 3px;
+    background:rgba(0,0,0,.6); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .clipTile .onLayers { position:absolute; top:1px; right:2px; display:flex; gap:2px; }
+  .clipTile .onLayers span { width:5px; height:5px; border-radius:50%; background:#3a4152; border:1px solid #000; }
+  #clipEmpty { color:var(--text-dim); font-size:11px; padding:8px 0; }
+
+  /* Layer rows (AE-like list). Row order = compositing stack order: top of list = front(most
+     visible/on top), bottom of list = back. Use the ▲▼ buttons to swap a layer with its
+     front/back neighbor. */
+  .layerRow { display:grid; grid-template-columns:16px 20px 22px 1fr 66px 92px; gap:5px; align-items:center;
+    padding:5px 3px; border-bottom:1px solid var(--panel-border); }
+  .layerRow:last-child { border-bottom:none; }
+  .layerRow.focused { background:rgba(247,30,92,.12); border-radius:5px; }
+  .layerRow .orderBtns { display:flex; flex-direction:column; gap:1px; }
+  .layerRow .orderBtns button { width:16px; height:11px; padding:0; font-size:6.5px; line-height:1;
+    display:flex; align-items:center; justify-content:center; }
+  .layerRow .orderBtns button:disabled { opacity:.25; cursor:default; }
+  .layerRow .eyeBtn { width:20px; height:20px; padding:0; font-size:10px; display:flex; align-items:center; justify-content:center; }
+  .layerRow .num { font-size:10.5px; color:var(--cyan); font-weight:700; text-align:center; }
+  .layerRow .clipName { font-size:10.5px; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:pointer; }
+  .layerRow select { width:100%; padding:3px; font-size:10px; }
+  .layerRow input[type=range] { width:66px; }
+
+  /* Focus detail panel: compact rotary knobs instead of full-width sliders */
+  .knobGrid { display:grid; grid-template-columns:repeat(5, 1fr); gap:6px 4px; }
+  .knobCell { display:flex; flex-direction:column; align-items:center; text-align:center; }
+  .knobCell .knobLabel { font-size:9px; color:var(--text-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+  .knobCell .val { font-size:9.5px; color:var(--cyan); margin-top:2px; }
+  .knobCellWide { grid-column: span 2; }
+  .knobCellWide select { width:100%; margin-top:4px; }
+  .knob { position:relative; width:34px; height:34px; margin:4px 0 0; cursor:ns-resize; touch-action:none; user-select:none; outline:none; }
+  .knob:focus-visible .knobRing { box-shadow:0 0 0 2px var(--magenta); border-radius:50%; }
+  .knob.dragging .knobBody { border-color:var(--magenta); }
+  .knobRing { position:absolute; inset:0; border-radius:50%;
+    background: conic-gradient(var(--cyan) calc(var(--pct,0) * 270deg), var(--panel-border) 0deg);
+    transform: rotate(-135deg); }
+  .knobBody { position:absolute; inset:4px; border-radius:50%; background:var(--navy); border:1px solid var(--panel-border); }
+  .knobPointerWrap { position:absolute; inset:0; transform: rotate(-135deg); }
+  .knobPointer { position:absolute; top:2px; left:50%; width:2px; height:8px; margin-left:-1px; background:var(--cyan); border-radius:1px; }
+
+  /* Effects chips */
+  .chips { display:flex; flex-wrap:wrap; gap:5px; }
+  .chip { padding:5px 9px; border-radius:999px; font-size:11px; }
+
+  /* Tempo */
+  #bpmDisplay { font-size:30px; font-weight:700; color:var(--magenta); letter-spacing:1px; }
+  .tempoRow { display:flex; align-items:center; gap:8px; }
+
+  .keys ul { list-style:none; padding-left:0; margin:2px 0; font-size:11px; line-height:1.75; }
+  .keys li b { display:inline-block; min-width:58px; color:var(--cyan); font-weight:600; }
+
+  #beatDot { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--magenta); opacity:.15; margin-left:6px; vertical-align:middle; }
+  .meter { background:var(--navy); height:6px; border-radius:3px; overflow:hidden; margin:5px 0 2px; border:1px solid var(--panel-border); }
+  #meterBar { height:100%; width:0%; background:linear-gradient(90deg, rgba(7,235,233,.35), var(--cyan)); }
+
+  /* MIDI mapping table */
+  .midiRow { display:grid; grid-template-columns:1fr 78px 60px 44px; gap:6px; align-items:center; padding:4px 0; font-size:11px; border-bottom:1px solid var(--panel-border); }
+  .midiRow .bindLabel { color:var(--cyan); font-size:10px; }
+  .midiSection summary { cursor:pointer; font-size:11px; color:var(--gray); padding:5px 0; }
+  #midiStatus { font-size:11px; color:var(--text-dim); }
+  #midiStatus.ok { color:#4ade80; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>VJ CONSOLE</h1>
+  <div class="tabs">
+    <button id="tabPerfBtn" class="tabBtn active">パフォーマンス</button>
+    <button id="tabSettingsBtn" class="tabBtn">設定(MIDI / キー)</button>
+  </div>
+  <div class="actions">
+    <button id="openOutputBtn" class="primary">VJ出力画面を開く</button>
+    <button id="expandMonitorBtn">プレビュー拡大</button>
+    <button id="playPauseBtn">一時停止</button>
+  </div>
+</div>
+
+<div class="wrap" id="screenPerf">
+  <!-- FULL-WIDTH ROW: monitor preview (very wide/thin real aspect ratio, needs full page width to be readable) -->
+  <div class="monitorRow">
+    <div class="card">
+      <h2>プレビュー(実際の出力)</h2>
+      <div id="monitorWrap">
+        <span class="badge" id="outBadge">出力画面: 未接続</span>
+        <canvas id="monitor" width="900" height="131"></canvas>
+      </div>
+      <div class="hint">実際の投影サイズ(横7555px×縦1101px、うち左側4755px幅のみ点灯・右側は未使用の第3面として常に黒)をそのまま再現したプレビューです。本番では「VJ出力画面を開く」で別ウィンドウをプロジェクター側ディスプレイへ移動してください。</div>
+    </div>
+  </div>
+
+  <!-- COLUMN A: clip bank (given the full column since the material list keeps growing) -->
+  <div class="colA">
+    <div class="card">
+      <h2>クリップ素材(常時再生プレビュー / 最低8つ同時再生対応)</h2>
+      <div class="row">
+        <button id="loadBtn">動画を読み込む(複数可)</button>
+        <button id="liteModeBtn" title="レイヤーに乗っていない素材のサムネイル再生を止めて負荷を軽減します">軽量モード:OFF</button>
+      </div>
+      <input type="file" id="fileInput" multiple accept="video/*" hidden>
+      <div class="hint">読み込んだ素材はここで常にループ再生され、内容を確認できます。クリック、または番号キー(1〜9, 0=10番目)で「操作フォーカス中レイヤー」に送出します。右上の色付き丸は現在どのレイヤーに乗っているかを示します。画面が重い場合は「軽量モード」をONにすると、レイヤーに乗っていない素材のプレビュー再生を止めつつ、出力の内部合成解像度も下げて負荷を大きく減らせます(見た目の画質は少し下がります)。</div>
+      <div id="clipGrid"></div>
+      <div id="clipEmpty">まだ素材がありません。動画ファイルをドラッグ&ドロップするか、上のボタンから読み込んでください。</div>
+    </div>
+  </div>
+
+  <!-- COLUMN B: layers + focus params + scenes -->
+  <div class="colB">
+    <div class="card">
+      <h2>レイヤー 1〜6 (フェーダー / ブレンド)</h2>
+      <div class="hint">一覧の並び順=合成の重ね順です(上ほど手前/上に表示、下ほど奥)。左端の▲▼で前後を入れ替えられます。●で表示ON/OFF、行クリックまたは番号でMIDIノブの操作対象(フォーカス)を切替。フェーダーが最重要コントロールです。</div>
+      <div id="layersContainer"></div>
+    </div>
+
+    <div class="card">
+      <h2>フォーカス中レイヤーの詳細エフェクト <span id="focusLabel" style="color:var(--magenta);"></span></h2>
+      <div class="hint">nanoKONTROL2のノブ(N1〜N8)はここに割り当てます。Y位置のみ画面操作専用です。</div>
+      <div class="knobGrid">
+        <div class="knobCell">
+          <div class="knobLabel">速度倍率</div>
+          <div class="knob" id="pSpeedKnob"><div class="knobRing"></div><div class="knobBody"></div><div class="knobPointerWrap"><div class="knobPointer"></div></div></div>
+          <span class="val" id="valSpeed">1.00x</span>
+          <input type="range" id="pSpeed" min="0" max="127" value="55" hidden>
+        </div>
+        <div class="knobCell">
+          <div class="knobLabel">拡大・縮小</div>
+          <div class="knob" id="pZoomKnob"><div class="knobRing"></div><div class="knobBody"></div><div class="knobPointerWrap"><div class="knobPointer"></div></div></div>
+          <span class="val" id="valZoom">1.00x</span>
+          <input type="range" id="pZoom" min="0" max="127" value="45" hidden>
+        </div>
+        <div class="knobCell">
+          <div class="knobLabel">回転</div>
+          <div class="knob" id="pRotationKnob"><div class="knobRing"></div><div class="knobBody"></div><div class="knobPointerWrap"><div class="knobPointer"></div></div></div>
+          <span class="val" id="valRotation">0°</span>
+          <input type="range" id="pRotation" min="0" max="127" value="64" hidden>
+        </div>
+        <div class="knobCell">
+          <div class="knobLabel">ノイズ量</div>
+          <div class="knob" id="pNoiseKnob"><div class="knobRing"></div><div class="knobBody"></div><div class="knobPointerWrap"><div class="knobPointer"></div></div></div>
+          <span class="val" id="valNoise">0%</span>
+          <input type="range" id="pNoise" min="0" max="127" value="0" hidden>
+        </div>
+        <div class="knobCell">
+          <div class="knobLabel">色の強さ</div>
+          <div class="knob" id="pColorKnob"><div class="knobRing"></div><div class="knobBody"></div><div class="knobPointerWrap"><div class="knobPointer"></div></div></div>
+          <span class="val" id="valColor">1.00x</span>
+          <input type="range" id="pColor" min="0" max="127" value="42" hidden>
+        </div>
+        <div class="knobCell">
+          <div class="knobLabel">明るさ</div>
+          <div class="knob" id="pBrightKnob"><div class="knobRing"></div><div class="knobBody"></div><div class="knobPointerWrap"><div class="knobPointer"></div></div></div>
+          <span class="val" id="valBright">1.00x</span>
+          <input type="range" id="pBright" min="0" max="127" value="64" hidden>
+        </div>
+        <div class="knobCell">
+          <div class="knobLabel">エフェクト量</div>
+          <div class="knob" id="pFxKnob"><div class="knobRing"></div><div class="knobBody"></div><div class="knobPointerWrap"><div class="knobPointer"></div></div></div>
+          <span class="val" id="valFx">0%</span>
+          <input type="range" id="pFx" min="0" max="127" value="0" hidden>
+        </div>
+        <div class="knobCell">
+          <div class="knobLabel">X位置</div>
+          <div class="knob" id="pXKnob"><div class="knobRing"></div><div class="knobBody"></div><div class="knobPointerWrap"><div class="knobPointer"></div></div></div>
+          <span class="val" id="valX">0</span>
+          <input type="range" id="pX" min="0" max="127" value="64" hidden>
+        </div>
+        <div class="knobCell">
+          <div class="knobLabel">Y位置(画面操作用)</div>
+          <div class="knob" id="pYKnob"><div class="knobRing"></div><div class="knobBody"></div><div class="knobPointerWrap"><div class="knobPointer"></div></div></div>
+          <span class="val" id="valY">0</span>
+          <input type="range" id="pY" min="0" max="127" value="64" hidden>
+        </div>
+        <div class="knobCell knobCellWide">
+          <div class="knobLabel">エフェクト種類</div>
+          <select id="pFxType">
+            <option value="none">なし</option>
+            <option value="invert">色反転</option>
+            <option value="hue">色相回転</option>
+            <option value="pixelate">モザイク</option>
+            <option value="mirror">ミラー</option>
+            <option value="glitch">グリッチ</option>
+          </select>
+        </div>
+      </div>
+      <div class="row" style="margin-top:8px;">
+        <button id="resetParamsBtn" class="danger">このレイヤーのエフェクトをリセット</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>シーン(レイヤー全体の配置を保存/呼出)</h2>
+      <div class="hint">Launchpadの「動画セットA〜D」用。今のレイヤー構成(どのクリップがどのレイヤーに乗っているか+フェーダー+ブレンド)を4つまで保存し、瞬時に呼び出せます。</div>
+      <div class="row">
+        <button class="sceneSaveBtn" data-scene="A">A保存</button>
+        <button class="sceneRecallBtn primary" data-scene="A">A呼出</button>
+        <button class="sceneSaveBtn" data-scene="B">B保存</button>
+        <button class="sceneRecallBtn primary" data-scene="B">B呼出</button>
+        <button class="sceneSaveBtn" data-scene="C">C保存</button>
+        <button class="sceneRecallBtn primary" data-scene="C">C呼出</button>
+        <button class="sceneSaveBtn" data-scene="D">D保存</button>
+        <button class="sceneRecallBtn primary" data-scene="D">D呼出</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- COLUMN C: tempo + fade + generative + global effects -->
+  <div class="colC">
+    <div class="card">
+      <h2>テンポ (BPM → 再生速度の基準)</h2>
+      <div class="tempoRow">
+        <div id="bpmDisplay">120</div>
+        <div style="flex:1">
+          <div class="row">
+            <button id="tapBtn" class="primary">TAP</button>
+            <button id="bpmMinus">-1</button>
+            <button id="bpmPlus">+1</button>
+            <button id="bpmHalf">/2</button>
+            <button id="bpmDouble">×2</button>
+          </div>
+          <label style="font-size:10.5px;color:var(--text-dim);margin-top:5px;display:block;">
+            基準BPM(この値のとき等速再生)
+            <input type="number" id="baseBpmInput" value="120" min="20" max="300" style="width:70px;margin-left:6px;">
+          </label>
+        </div>
+      </div>
+      <div class="hint">BPMを基準BPMより上げると全クリップが速く、下げると遅く再生されます。各レイヤーの「速度倍率」ノブでさらに個別調整できます。</div>
+    </div>
+
+    <div class="card">
+      <h2>フェード / ブレンド</h2>
+      <div class="row">
+        <button id="fadeInBtn">フォーカスレイヤーをフェードイン</button>
+        <button id="fadeOutBtn">フォーカスレイヤーをフェードアウト</button>
+      </div>
+      <div class="row" style="margin-top:6px;">
+        <button id="fadeBlackBtn" style="flex:1;">全体フェードアウト(暗転/ブラックアウト)</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>ジェネラティブ映像(マイク反応)</h2>
+      <div class="row">
+        <button id="genToggleBtn">ジェネラティブ: OFF</button>
+        <select id="genModeSelect"></select>
+        <button id="micToggleBtn">マイク: OFF</button>
+      </div>
+      <div class="hint">音量<div class="meter"><div id="meterBar"></div></div></div>
+    </div>
+
+    <div class="card">
+      <h2>グローバルエフェクト <span id="beatDot"></span></h2>
+      <div class="chips" id="effectChips"></div>
+      <div class="row" style="margin-top:8px;">
+        <button id="strobeBtn">ビート連動ストロボ</button>
+        <button id="flashBtn">手動フラッシュ</button>
+        <button id="resetFxBtn" class="danger">グローバルエフェクト全リセット</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS SCREEN: MIDI mapping + keyboard reference (kept off the main performance screen) -->
+<div class="wrap" id="screenSettings" style="display:none;">
+  <div class="colSettingsMidi">
+    <div class="card">
+      <h2>MIDI コントローラー</h2>
+      <div class="row between">
+        <span id="midiStatus">MIDI未接続</span>
+        <button id="midiRefreshBtn" class="small">再スキャン</button>
+      </div>
+      <div class="hint">Launchpad・nanoKONTROL2などクラス準拠のMIDI機器に対応。各項目の「学習」を押してから実機のパッド/フェーダー/ノブを動かすと自動で割り当てられます。</div>
+      <div class="row">
+        <button id="wizardLaunchpadBtn" class="primary small">Launchpad一括学習</button>
+        <button id="wizardNanoBtn" class="primary small">nanoKONTROL2一括学習</button>
+      </div>
+      <div class="row" style="margin-top:6px;">
+        <button id="nanoPresetBtn" class="small">nanoKONTROL2 工場出荷CDプリセット読込</button>
+        <button id="midiExportBtn" class="small">割当を書き出し</button>
+        <button id="midiImportBtn" class="small">割当を読み込み</button>
+        <button id="midiClearBtn" class="small danger">全解除</button>
+      </div>
+      <input type="file" id="midiImportFile" accept="application/json" hidden>
+      <div id="wizardBox" style="display:none;background:var(--navy);border:1px solid var(--magenta);border-radius:8px;padding:8px 10px;margin-top:8px;font-size:11.5px;">
+        <div id="wizardText">-</div>
+        <div class="row" style="margin-top:6px;">
+          <button id="wizardSkipBtn" class="small">スキップ</button>
+          <button id="wizardCancelBtn" class="small danger">中止</button>
+        </div>
+      </div>
+
+      <details class="midiSection" open><summary>レイヤー フェーダー(6)</summary><div id="midiFaders"></div></details>
+      <details class="midiSection"><summary>レイヤー フォーカス選択(6)</summary><div id="midiFocus"></div></details>
+      <details class="midiSection"><summary>フォーカスレイヤー用ノブ(8)</summary><div id="midiKnobs"></div></details>
+      <details class="midiSection"><summary>クリップ トリガー(先頭12個)</summary><div id="midiClips"></div></details>
+      <details class="midiSection"><summary>シーン呼び出し(4)</summary><div id="midiScenes"></div></details>
+      <details class="midiSection"><summary>グローバル操作</summary><div id="midiGlobal"></div></details>
+    </div>
+  </div>
+
+  <div class="colSettingsKeys">
+    <div class="card keys">
+      <h2>キーボードショートカット</h2>
+      <ul>
+        <li><b>1-9, 0</b>フォーカスレイヤーにクリップ読込/再トリガー(0=10番目)</li>
+        <li><b>Tab / ⇧Tab</b>フォーカスレイヤー切替(1→6→1…)</li>
+        <li><b>↑ / ↓</b>フォーカスレイヤーの不透明度</li>
+        <li><b>B</b>フォーカスレイヤーのブレンド切替 / <b>Space</b>全体再生/一時停止</li>
+        <li><b>G / V</b>ジェネラティブ表示切替 / モード切替</li>
+        <li><b>M</b>マイク有効/無効</li>
+        <li><b>I U Y K P X T</b>色反転/色相回転/サイケ/ブラー/モザイク/ミラー/トレイル(グローバル)</li>
+        <li><b>S / Z</b>ビート連動ストロボ / 手動フラッシュ</li>
+        <li><b>Q</b>全体フェードアウト⇄イン(暗転) / <b>Esc</b>グローバルエフェクト全リセット</li>
+        <li><b>F</b>VJ出力画面を開く/フォーカス</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const NUM_LAYERS = 6;
+
+  // ---------- Screen tabs: パフォーマンス(単一画面で完結) / 設定(MIDI・キーボード) ----------
+  const screenPerf = document.getElementById('screenPerf');
+  const screenSettings = document.getElementById('screenSettings');
+  const tabPerfBtn = document.getElementById('tabPerfBtn');
+  const tabSettingsBtn = document.getElementById('tabSettingsBtn');
+  function showScreen(name) {
+    const perf = name === 'perf';
+    screenPerf.style.display = perf ? 'grid' : 'none';
+    screenSettings.style.display = perf ? 'none' : 'grid';
+    tabPerfBtn.classList.toggle('active', perf);
+    tabSettingsBtn.classList.toggle('active', !perf);
+  }
+  tabPerfBtn.addEventListener('click', () => showScreen('perf'));
+  tabSettingsBtn.addEventListener('click', () => showScreen('settings'));
+  showScreen('perf');
+
+  // ---------- Physical projection layout ----------
+  // Real venue: 3-projector wide canvas, 7555x1101 total, but only 2 of the 3 panels
+  // (4755x1101, flush-left) are actually used this time; the remaining ~2800px on the
+  // right MUST always render pure black (the unused 3rd panel).
+  const ACTIVE_W = 4755, ACTIVE_H = 1101; // "lit" content area — author/composite clips at this ratio
+  const TOTAL_W = 7555, TOTAL_H = 1101;   // full physical output canvas (TOTAL_H === ACTIVE_H)
+
+  // ---------- Offscreen render canvases (working resolution, proportional to the active area) ----------
+  // RES_NORMAL_H / RES_LITE_H: 軽量モードON時は内部合成解像度そのものを下げ、フィルターや
+  // 合成処理が毎フレーム扱う画素数を大きく減らす(ブラウザのCanvas 2Dフィルターはネイティブの
+  // VJソフトのGPUシェーダーほど最適化されていないため、解像度を下げるのが最も効く負荷対策)。
+  const RES_NORMAL_H = 300;
+  const RES_LITE_H = 190;
+  let SCENE_H = RES_NORMAL_H;
+  let SCENE_W = Math.round(SCENE_H * ACTIVE_W / ACTIVE_H); // internal compositing resolution for the active/lit region
+  let FINAL_H = SCENE_H; // total output height == active height in the real venue
+  let FINAL_W = Math.round(SCENE_W * TOTAL_W / ACTIVE_W);  // total output width, same px-per-real-px scale as SCENE_W
+  const sceneCanvas = document.createElement('canvas');
+  sceneCanvas.width = SCENE_W; sceneCanvas.height = SCENE_H;
+  const ctx = sceneCanvas.getContext('2d');
+  const outputCanvas = document.createElement('canvas');
+  outputCanvas.width = SCENE_W; outputCanvas.height = SCENE_H;
+  const octx = outputCanvas.getContext('2d');
+  const pixelTemp = document.createElement('canvas');
+  const layerScratch = document.createElement('canvas');
+  layerScratch.width = SCENE_W; layerScratch.height = SCENE_H;
+  const lctx = layerScratch.getContext('2d');
+
+  // Final masked output: fixed 7555x1101-proportioned canvas with the active content
+  // flush-left and a guaranteed solid-black fill on the unused right-hand region.
+  const finalCanvas = document.createElement('canvas');
+  finalCanvas.width = FINAL_W; finalCanvas.height = FINAL_H;
+  const fctx = finalCanvas.getContext('2d');
+  window.__VJ_OUTPUT_CANVAS__ = finalCanvas; // exposed for the popup output window
+
+  // Visible monitor preview (in control page) — mirrors the exact masked layout
+  const monitor = document.getElementById('monitor');
+  monitor.width = FINAL_W; monitor.height = FINAL_H;
+  const mctx = monitor.getContext('2d');
+
+  // Set by openOutputWindow() while the output popup is open, so its canvas's pixel
+  // buffer can be kept in sync whenever the internal compositing resolution changes.
+  let popupCanvasEl = null;
+
+  // Recomputes the internal compositing resolution from liteMode and resizes every
+  // render canvas to match. Called whenever 軽量モード is toggled (liteMode is declared
+  // further below; this function is only ever invoked after that point).
+  function applyRenderResolution() {
+    SCENE_H = liteMode ? RES_LITE_H : RES_NORMAL_H;
+    SCENE_W = Math.round(SCENE_H * ACTIVE_W / ACTIVE_H);
+    FINAL_H = SCENE_H;
+    FINAL_W = Math.round(SCENE_W * TOTAL_W / ACTIVE_W);
+    sceneCanvas.width = SCENE_W; sceneCanvas.height = SCENE_H;
+    outputCanvas.width = SCENE_W; outputCanvas.height = SCENE_H;
+    layerScratch.width = SCENE_W; layerScratch.height = SCENE_H;
+    finalCanvas.width = FINAL_W; finalCanvas.height = FINAL_H;
+    monitor.width = FINAL_W; monitor.height = FINAL_H;
+    if (popupCanvasEl) { try { popupCanvasEl.width = FINAL_W; popupCanvasEl.height = FINAL_H; } catch (e) {} }
+  }
+
+  // Static noise texture (regenerated occasionally) used for the per-layer "noise" param
+  const noiseTex = document.createElement('canvas');
+  noiseTex.width = 200; noiseTex.height = 120;
+  const nctx = noiseTex.getContext('2d');
+  function regenNoise() {
+    const id = nctx.createImageData(noiseTex.width, noiseTex.height);
+    for (let i = 0; i < id.data.length; i += 4) {
+      const v = Math.random() * 255;
+      id.data[i] = v; id.data[i + 1] = v; id.data[i + 2] = v; id.data[i + 3] = 255;
+    }
+    nctx.putImageData(id, 0, 0);
+  }
+  regenNoise();
+
+  // ---------- Clip bank ----------
+  const clips = []; // {name, video}
+  const clipGridEl = document.getElementById('clipGrid');
+  const clipEmptyEl = document.getElementById('clipEmpty');
+  const fileInput = document.getElementById('fileInput');
+  document.getElementById('loadBtn').addEventListener('click', () => fileInput.click());
+
+  let liteMode = false;
+  const liteModeBtn = document.getElementById('liteModeBtn');
+
+  // 軽量モード時、6レイヤーいずれにも乗っていない素材の再生を止めて同時デコード数を減らす。
+  // triggerClip / recallScene 等で明示的に play() されるクリップの動作には影響しない。
+  function syncClipPlayback() {
+    clips.forEach((c, idx) => {
+      const inUse = layers.some((ly) => ly.clipIndex === idx);
+      const shouldPlay = !globalPaused && (!liteMode || inUse);
+      if (shouldPlay) { if (c.video.paused) c.video.play().catch(() => {}); }
+      else if (!c.video.paused) { c.video.pause(); }
+    });
+  }
+
+  liteModeBtn.addEventListener('click', () => {
+    liteMode = !liteMode;
+    liteModeBtn.classList.toggle('active', liteMode);
+    liteModeBtn.textContent = '軽量モード:' + (liteMode ? 'ON' : 'OFF');
+    syncClipPlayback();
+    applyRenderResolution(); // 軽量モードON/OFFで内部合成解像度そのものも上げ下げし、毎フレームのフィルター/合成コストを削減
+  });
+
+  function addFiles(fileList) {
+    for (const file of fileList) {
+      if (!file.type.startsWith('video/')) continue;
+      const url = URL.createObjectURL(file);
+      const video = document.createElement('video');
+      video.src = url;
+      video.loop = true;
+      video.muted = true;
+      video.playsInline = true;
+      video.preload = 'auto';
+      video.load();
+      if (!liteMode) video.play().catch(() => {});
+      clips.push({ name: file.name, video });
+    }
+    applyGlobalPlaybackRate();
+    renderClipGrid();
+    syncClipPlayback();
+  }
+  fileInput.addEventListener('change', (e) => { addFiles(e.target.files); fileInput.value = ''; });
+  window.addEventListener('dragover', (e) => e.preventDefault());
+  window.addEventListener('drop', (e) => { e.preventDefault(); if (e.dataTransfer && e.dataTransfer.files) addFiles(e.dataTransfer.files); });
+
+  function renderClipGrid() {
+    clipEmptyEl.style.display = clips.length ? 'none' : 'block';
+    clipGridEl.innerHTML = '';
+    clips.forEach((c, i) => {
+      const tile = document.createElement('div');
+      tile.className = 'clipTile';
+      tile.dataset.index = i;
+      tile.appendChild(c.video);
+      const num = document.createElement('div'); num.className = 'num'; num.textContent = i + 1;
+      const name = document.createElement('div'); name.className = 'name'; name.textContent = c.name;
+      const dots = document.createElement('div'); dots.className = 'onLayers';
+      layers.forEach((ly, li) => {
+        if (ly.clipIndex === i) {
+          const dot = document.createElement('span');
+          dot.style.background = LAYER_COLORS[li];
+          dots.appendChild(dot);
+        }
+      });
+      tile.appendChild(num); tile.appendChild(name); tile.appendChild(dots);
+      tile.addEventListener('click', () => triggerClip(i));
+      clipGridEl.appendChild(tile);
+    });
+  }
+
+  // ---------- BPM ----------
+  let bpm = 120, baseBpm = 120;
+  let tapTimes = [];
+  const bpmDisplay = document.getElementById('bpmDisplay');
+  const baseBpmInput = document.getElementById('baseBpmInput');
+
+  function applyGlobalPlaybackRate() {
+    clips.forEach((c) => { c.video.playbackRate = clamp((bpm / baseBpm), 0.1, 8); });
+    bpmDisplay.textContent = Math.round(bpm);
+  }
+  document.getElementById('tapBtn').addEventListener('click', () => {
+    const now = performance.now();
+    if (tapTimes.length && now - tapTimes[tapTimes.length - 1] > 2000) tapTimes = [];
+    tapTimes.push(now);
+    if (tapTimes.length > 8) tapTimes.shift();
+    if (tapTimes.length >= 2) {
+      const intervals = [];
+      for (let i = 1; i < tapTimes.length; i++) intervals.push(tapTimes[i] - tapTimes[i - 1]);
+      const avg = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+      bpm = clamp(Math.round(60000 / avg), 40, 240);
+      applyGlobalPlaybackRate();
+    }
+  });
+  document.getElementById('bpmMinus').addEventListener('click', () => { bpm = clamp(bpm - 1, 40, 240); applyGlobalPlaybackRate(); });
+  document.getElementById('bpmPlus').addEventListener('click', () => { bpm = clamp(bpm + 1, 40, 240); applyGlobalPlaybackRate(); });
+  document.getElementById('bpmHalf').addEventListener('click', () => { bpm = clamp(bpm / 2, 40, 240); applyGlobalPlaybackRate(); });
+  document.getElementById('bpmDouble').addEventListener('click', () => { bpm = clamp(bpm * 2, 40, 240); applyGlobalPlaybackRate(); });
+  baseBpmInput.addEventListener('change', () => { baseBpm = clamp(parseFloat(baseBpmInput.value) || 120, 20, 300); applyGlobalPlaybackRate(); });
+
+  // ---------- Layers (1-6) ----------
+  const LAYER_COLORS = ['#07EBE9', '#21C6F0', '#4A9EF5', '#8F6FF0', '#C43FD0', '#F71E5C'];
+  const blendModes = ['source-over', 'screen', 'lighten', 'multiply', 'overlay', 'difference', 'exclusion', 'soft-light', 'color-dodge'];
+  const blendLabels = { 'source-over': '通常', screen: 'スクリーン', lighten: '比較(明)', multiply: '乗算', overlay: 'オーバーレイ', difference: '差の絶対値', exclusion: '除外', 'soft-light': 'ソフトライト', 'color-dodge': '覆い焼き' };
+  const PARAM_DEFS = {
+    speed: { min: 0.25, max: 4, def: 1, format: (v) => v.toFixed(2) + 'x' },
+    zoom: { min: 0.2, max: 3, def: 1, format: (v) => v.toFixed(2) + 'x' },
+    rotation: { min: -180, max: 180, def: 0, format: (v) => Math.round(v) + '°' },
+    noise: { min: 0, max: 1, def: 0, format: (v) => Math.round(v * 100) + '%' },
+    color: { min: 0, max: 3, def: 1, format: (v) => v.toFixed(2) + 'x' },
+    bright: { min: 0, max: 2, def: 1, format: (v) => v.toFixed(2) + 'x' },
+    fxAmount: { min: 0, max: 1, def: 0, format: (v) => Math.round(v * 100) + '%' },
+    x: { min: -1, max: 1, def: 0, format: (v) => v.toFixed(2) },
+    y: { min: -1, max: 1, def: 0, format: (v) => v.toFixed(2) },
+  };
+  function midiToValue(param, midi127) { const d = PARAM_DEFS[param]; return d.min + (clamp(midi127, 0, 127) / 127) * (d.max - d.min); }
+  function valueToMidi(param, value) { const d = PARAM_DEFS[param]; return Math.round(clamp((value - d.min) / (d.max - d.min), 0, 1) * 127); }
+  function defaultParams() {
+    const p = {}; Object.keys(PARAM_DEFS).forEach((k) => { p[k] = PARAM_DEFS[k].def; }); p.fxType = 'none'; return p;
+  }
+
+  const layers = Array.from({ length: NUM_LAYERS }, (_, i) => ({
+    clipIndex: -1, video: null, opacity: i === 0 ? 1 : 0, lastOpacity: 1, blend: 'source-over', params: defaultParams(),
+  }));
+  let focusLayer = 0;
+  let globalPaused = false;
+
+  // stackOrder holds layer identity indices (0..NUM_LAYERS-1) in compositing order:
+  // stackOrder[0] is drawn first (furthest back), stackOrder[last] is drawn last (frontmost/on top).
+  // This is independent from a layer's fixed identity (number, color, MIDI mapping), so
+  // reordering the stack never changes which fader/knob controls which layer.
+  let stackOrder = Array.from({ length: NUM_LAYERS }, (_, i) => i);
+
+  function moveLayerStack(i, dir) {
+    const pos = stackOrder.indexOf(i);
+    const swapPos = pos + dir;
+    if (swapPos < 0 || swapPos >= NUM_LAYERS) return;
+    [stackOrder[pos], stackOrder[swapPos]] = [stackOrder[swapPos], stackOrder[pos]];
+    buildLayerRows();
+    updateStatus();
+  }
+
+  const layersContainer = document.getElementById('layersContainer');
+  const layerRowEls = [];
+  function buildLayerRows() {
+    layersContainer.innerHTML = '';
+    layerRowEls.length = NUM_LAYERS;
+    // Display top-to-bottom = front-to-back, i.e. the reverse of stackOrder (whose end is frontmost).
+    const displayOrder = [...stackOrder].reverse();
+    displayOrder.forEach((i) => {
+      const ly = layers[i];
+      const pos = stackOrder.indexOf(i);
+      const row = document.createElement('div');
+      row.className = 'layerRow';
+      row.dataset.layer = i;
+      const orderBtns = document.createElement('div'); orderBtns.className = 'orderBtns';
+      const upBtn = document.createElement('button'); upBtn.textContent = '▲'; upBtn.title = '前面へ(手前に一段移動)';
+      const downBtn = document.createElement('button'); downBtn.textContent = '▼'; downBtn.title = '背面へ(奥に一段移動)';
+      upBtn.disabled = pos === NUM_LAYERS - 1;
+      downBtn.disabled = pos === 0;
+      upBtn.addEventListener('click', (e) => { e.stopPropagation(); moveLayerStack(i, 1); });
+      downBtn.addEventListener('click', (e) => { e.stopPropagation(); moveLayerStack(i, -1); });
+      orderBtns.appendChild(upBtn); orderBtns.appendChild(downBtn);
+      const eye = document.createElement('button'); eye.className = 'eyeBtn'; eye.textContent = '●'; eye.title = '表示ON/OFF';
+      eye.addEventListener('click', (e) => { e.stopPropagation(); toggleLayerEye(i); });
+      const num = document.createElement('div'); num.className = 'num'; num.textContent = i + 1; num.style.color = LAYER_COLORS[i];
+      const nameEl = document.createElement('div'); nameEl.className = 'clipName'; nameEl.textContent = '(未読込)';
+      const opacityEl = document.createElement('input'); opacityEl.type = 'range'; opacityEl.min = 0; opacityEl.max = 100; opacityEl.value = Math.round(ly.opacity * 100);
+      opacityEl.addEventListener('input', () => { layers[i].opacity = opacityEl.value / 100; updateStatus(); });
+      const blendEl = document.createElement('select');
+      blendModes.forEach((b) => { const o = document.createElement('option'); o.value = b; o.textContent = blendLabels[b]; blendEl.appendChild(o); });
+      blendEl.value = ly.blend;
+      blendEl.addEventListener('change', () => { layers[i].blend = blendEl.value; updateStatus(); });
+      row.addEventListener('click', (e) => { if (e.target === opacityEl || e.target === blendEl || e.target === eye || e.target === upBtn || e.target === downBtn) return; setFocusLayer(i); });
+      row.appendChild(orderBtns); row.appendChild(eye); row.appendChild(num); row.appendChild(nameEl); row.appendChild(opacityEl); row.appendChild(blendEl);
+      layersContainer.appendChild(row);
+      layerRowEls[i] = { row, nameEl, opacityEl, blendEl };
+    });
+  }
+  buildLayerRows();
+
+  function toggleLayerEye(i) {
+    const ly = layers[i];
+    if (ly.opacity > 0.001) { ly.lastOpacity = ly.opacity; ly.opacity = 0; } else { ly.opacity = ly.lastOpacity || 1; }
+    updateStatus();
+  }
+  function setFocusLayer(i) { focusLayer = clamp(i, 0, NUM_LAYERS - 1); updateStatus(); }
+
+  function triggerClip(idx) {
+    const clip = clips[idx];
+    if (!clip) return;
+    const layer = layers[focusLayer];
+    layer.clipIndex = idx;
+    layer.video = clip.video;
+    if (layer.opacity < 0.02) layer.opacity = layer.lastOpacity || 1;
+    clip.video.currentTime = 0;
+    clip.video.play().catch(() => {});
+    syncClipPlayback();
+    updateStatus();
+  }
+
+  function cycleBlend(i) {
+    const layer = layers[i];
+    const idx = blendModes.indexOf(layer.blend);
+    layer.blend = blendModes[(idx + 1) % blendModes.length];
+    updateStatus();
+  }
+
+  function togglePlay() {
+    globalPaused = !globalPaused;
+    syncClipPlayback();
+    updateStatus();
+  }
+  document.getElementById('playPauseBtn') && document.getElementById('playPauseBtn').addEventListener('click', togglePlay);
+
+  function drawCover(c, video, w, h) {
+    if (!video || video.readyState < 2) return;
+    const vw = video.videoWidth, vh = video.videoHeight;
+    if (!vw || !vh) return;
+    const scale = Math.max(w / vw, h / vh);
+    const sw = w / scale, sh = h / scale;
+    const sx = (vw - sw) / 2, sy = (vh - sh) / 2;
+    c.drawImage(video, sx, sy, sw, sh, 0, 0, w, h);
+  }
+
+  // ---------- Focus-layer detail param knobs ----------
+  // Each parameter is backed by a hidden <input type=range> (kept for compatibility with
+  // MIDI mapping / scene recall / value formatting logic below) and driven visually + by
+  // mouse/touch/wheel/keyboard via a compact rotary knob widget, to save panel space.
+  const paramSliderIds = { speed: 'pSpeed', zoom: 'pZoom', rotation: 'pRotation', noise: 'pNoise', color: 'pColor', bright: 'pBright', fxAmount: 'pFx', x: 'pX', y: 'pY' };
+  const paramValueIds = { speed: 'valSpeed', zoom: 'valZoom', rotation: 'valRotation', noise: 'valNoise', color: 'valColor', bright: 'valBright', fxAmount: 'valFx', x: 'valX', y: 'valY' };
+  const pFxTypeEl = document.getElementById('pFxType');
+
+  function initKnob(knobEl, inputEl) {
+    if (!knobEl) return () => {};
+    const ring = knobEl.querySelector('.knobRing');
+    const pointerWrap = knobEl.querySelector('.knobPointerWrap');
+    const min = parseFloat(inputEl.min), max = parseFloat(inputEl.max);
+    function render() {
+      const pct = clamp((parseFloat(inputEl.value) - min) / (max - min), 0, 1);
+      ring.style.setProperty('--pct', pct);
+      pointerWrap.style.transform = `rotate(${-135 + pct * 270}deg)`;
+    }
+    function setFromDelta(delta) {
+      const nv = clamp(parseFloat(inputEl.value) + delta, min, max);
+      inputEl.value = Math.round(nv);
+      inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    let dragging = false, startY = 0, startVal = 0;
+    knobEl.tabIndex = 0;
+    knobEl.addEventListener('pointerdown', (e) => {
+      dragging = true; startY = e.clientY; startVal = parseFloat(inputEl.value);
+      knobEl.setPointerCapture(e.pointerId);
+      knobEl.classList.add('dragging');
+      knobEl.focus();
+    });
+    knobEl.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      const dy = startY - e.clientY;
+      const nv = clamp(startVal + dy * ((max - min) / 130), min, max);
+      inputEl.value = Math.round(nv);
+      inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    function endDrag() { dragging = false; knobEl.classList.remove('dragging'); }
+    knobEl.addEventListener('pointerup', endDrag);
+    knobEl.addEventListener('pointercancel', endDrag);
+    knobEl.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      setFromDelta((max - min) / 127 * (e.deltaY < 0 ? 2 : -2));
+    }, { passive: false });
+    knobEl.addEventListener('keydown', (e) => {
+      const step = (max - min) / 127 * 2;
+      if (e.key === 'ArrowUp' || e.key === 'ArrowRight') { setFromDelta(step); e.preventDefault(); }
+      else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') { setFromDelta(-step); e.preventDefault(); }
+    });
+    inputEl.addEventListener('input', render);
+    render();
+    return render;
+  }
+
+  const knobRenderers = {};
+  Object.keys(paramSliderIds).forEach((key) => {
+    const el = document.getElementById(paramSliderIds[key]);
+    const knobEl = document.getElementById(paramSliderIds[key] + 'Knob');
+    knobRenderers[key] = initKnob(knobEl, el);
+    el.addEventListener('input', () => {
+      layers[focusLayer].params[key] = midiToValue(key, parseInt(el.value, 10));
+      updateStatus();
+    });
+  });
+  pFxTypeEl.addEventListener('change', () => { layers[focusLayer].params.fxType = pFxTypeEl.value; updateStatus(); });
+  document.getElementById('resetParamsBtn').addEventListener('click', () => { layers[focusLayer].params = defaultParams(); updateStatus(); });
+
+  // ---------- Scenes (Launchpad "動画セットA〜D") ----------
+  const scenes = { A: null, B: null, C: null, D: null };
+  function saveScene(name) {
+    scenes[name] = {
+      layers: layers.map((ly) => ({ clipIndex: ly.clipIndex, opacity: ly.opacity, blend: ly.blend, params: JSON.parse(JSON.stringify(ly.params)) })),
+      stackOrder: stackOrder.slice(),
+    };
+    updateStatus();
+  }
+  function recallScene(name) {
+    const snap = scenes[name];
+    if (!snap) return;
+    snap.layers.forEach((s, i) => {
+      const ly = layers[i];
+      ly.opacity = s.opacity; ly.blend = s.blend; ly.params = JSON.parse(JSON.stringify(s.params));
+      if (s.clipIndex >= 0 && clips[s.clipIndex]) {
+        ly.clipIndex = s.clipIndex; ly.video = clips[s.clipIndex].video;
+        clips[s.clipIndex].video.play().catch(() => {});
+      }
+    });
+    if (snap.stackOrder) stackOrder = snap.stackOrder.slice();
+    buildLayerRows();
+    syncClipPlayback();
+    updateStatus();
+  }
+  document.querySelectorAll('.sceneSaveBtn').forEach((b) => b.addEventListener('click', () => saveScene(b.dataset.scene)));
+  document.querySelectorAll('.sceneRecallBtn').forEach((b) => b.addEventListener('click', () => recallScene(b.dataset.scene)));
+
+  // ---------- Fade helpers ----------
+  function animate(setter, from, to, duration, onDone) {
+    const start = performance.now();
+    function step(now) {
+      const t = clamp((now - start) / duration, 0, 1);
+      const eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+      setter(from + (to - from) * eased);
+      updateStatus();
+      if (t < 1) requestAnimationFrame(step); else if (onDone) onDone();
+    }
+    requestAnimationFrame(step);
+  }
+  document.getElementById('fadeInBtn').addEventListener('click', () => { const ly = layers[focusLayer]; animate((v) => { ly.opacity = v; }, ly.opacity, 1, 900); });
+  document.getElementById('fadeOutBtn').addEventListener('click', () => { const ly = layers[focusLayer]; animate((v) => { ly.opacity = v; }, ly.opacity, 0, 900); });
+
+  let masterFade = 1; // 1 = 表示, 0 = 暗転
+  const fadeBlackBtn = document.getElementById('fadeBlackBtn');
+  function toggleFadeBlack() {
+    if (masterFade > 0.5) {
+      fadeBlackBtn.textContent = '全体フェードイン(復帰)';
+      animate((v) => { masterFade = v; }, masterFade, 0, 900);
+    } else {
+      fadeBlackBtn.textContent = '全体フェードアウト(暗転/ブラックアウト)';
+      animate((v) => { masterFade = v; }, masterFade, 1, 900);
+    }
+  }
+  fadeBlackBtn.addEventListener('click', toggleFadeBlack);
+
+  // ---------- Global post effects (baked into canvas pixels via ctx.filter so they mirror correctly) ----------
+  const effects = { invert: false, hueSpin: false, psychedelic: false, blur: false, pixelate: false, mirror: false, trail: false, noiseOverlay: false };
+  const fxLabels = { invert: '色反転', hueSpin: '色相回転', psychedelic: 'サイケ', blur: 'ブラー', pixelate: 'モザイク', mirror: 'ミラー', trail: 'トレイル', noiseOverlay: 'ノイズ' };
+  let autoStrobe = false, flashAlpha = 0, hueDeg = 0;
+
+  const effectChipsEl = document.getElementById('effectChips');
+  Object.keys(effects).forEach((key) => {
+    const b = document.createElement('button');
+    b.className = 'chip'; b.textContent = fxLabels[key]; b.dataset.fx = key;
+    b.addEventListener('click', () => { effects[key] = !effects[key]; updateStatus(); });
+    effectChipsEl.appendChild(b);
+  });
+  const strobeBtn = document.getElementById('strobeBtn');
+  strobeBtn.addEventListener('click', () => { autoStrobe = !autoStrobe; updateStatus(); });
+  document.getElementById('flashBtn').addEventListener('click', () => { flashAlpha = 1; });
+  document.getElementById('resetFxBtn').addEventListener('click', resetEffects);
+
+  function drawPixelated(src, destCtx, w, h, amount) {
+    const scale = clamp(0.12 - (amount || 0.06) * 0.11, 0.01, 0.3);
+    const tw = Math.max(4, Math.floor(w * scale)), th = Math.max(4, Math.floor(h * scale));
+    pixelTemp.width = tw; pixelTemp.height = th;
+    const tctx = pixelTemp.getContext('2d');
+    tctx.imageSmoothingEnabled = true;
+    tctx.drawImage(src, 0, 0, tw, th);
+    destCtx.imageSmoothingEnabled = false;
+    destCtx.drawImage(pixelTemp, 0, 0, tw, th, 0, 0, w, h);
+    destCtx.imageSmoothingEnabled = true;
+  }
+
+  function resetEffects() {
+    Object.keys(effects).forEach((k) => { effects[k] = false; });
+    autoStrobe = false;
+    masterFade = 1;
+    fadeBlackBtn.textContent = '全体フェードアウト(暗転/ブラックアウト)';
+    updateStatus();
+  }
+
+  // ---------- Audio / generative ----------
+  let audioCtx = null, analyser = null, micStream = null, micEnabled = false;
+  let freqData = null, timeData = null;
+  const micToggleBtn = document.getElementById('micToggleBtn');
+
+  async function toggleMic() {
+    if (micEnabled) {
+      if (micStream) micStream.getTracks().forEach((t) => t.stop());
+      if (audioCtx) audioCtx.close();
+      analyser = null; audioCtx = null; micStream = null; micEnabled = false;
+      updateStatus();
+      return;
+    }
+    try {
+      micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') await audioCtx.resume();
+      const src = audioCtx.createMediaStreamSource(micStream);
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 1024;
+      analyser.smoothingTimeConstant = 0.8;
+      freqData = new Uint8Array(analyser.frequencyBinCount);
+      timeData = new Uint8Array(analyser.fftSize);
+      src.connect(analyser);
+      micEnabled = true;
+    } catch (err) {
+      alert('マイクにアクセスできませんでした: ' + err.message +
+        '\nローカルファイルとして開いている場合、ブラウザの設定によりマイク使用がブロックされることがあります。GitHub Pages等httpsで公開すると安定します。');
+    }
+    updateStatus();
+  }
+  micToggleBtn.addEventListener('click', toggleMic);
+
+  function analyzeAudio(now) {
+    if (!analyser) {
+      const bass = 40 + 25 * Math.sin(now / 500);
+      const mid = 40 + 20 * Math.sin(now / 350 + 1);
+      const treble = 30 + 15 * Math.sin(now / 220 + 2);
+      return { bass, mid, treble, volume: (bass + mid + treble) / 3 };
+    }
+    analyser.getByteFrequencyData(freqData);
+    analyser.getByteTimeDomainData(timeData);
+    const n = freqData.length;
+    const bassEnd = Math.floor(n * 0.12), midEnd = Math.floor(n * 0.5);
+    let bass = 0, mid = 0, treble = 0;
+    for (let i = 0; i < bassEnd; i++) bass += freqData[i];
+    for (let i = bassEnd; i < midEnd; i++) mid += freqData[i];
+    for (let i = midEnd; i < n; i++) treble += freqData[i];
+    bass /= (bassEnd || 1); mid /= ((midEnd - bassEnd) || 1); treble /= ((n - midEnd) || 1);
+    return { bass, mid, treble, volume: (bass + mid + treble) / 3 };
+  }
+
+  const energyHistory = [];
+  let lastBeatTime = 0, beatPulse = 0;
+  function updateBeat(audio, now) {
+    energyHistory.push(audio.bass);
+    if (energyHistory.length > 30) energyHistory.shift();
+    const avg = energyHistory.reduce((a, b) => a + b, 0) / energyHistory.length;
+    if (audio.bass > avg * 1.35 && audio.bass > 25 && now - lastBeatTime > 180) {
+      beatPulse = 1; lastBeatTime = now;
+      if (autoStrobe) flashAlpha = 0.85;
+      if (genModeIndex === 1) spawnParticles(audio.bass);
+    }
+    beatPulse *= 0.9;
+  }
+
+  let generativeOn = false, genModeIndex = 0, particles = [];
+  const genModeNames = ['バー', 'パーティクル', '万華鏡', 'トンネル'];
+  const genModeSelect = document.getElementById('genModeSelect');
+  genModeNames.forEach((n, i) => { const o = document.createElement('option'); o.value = i; o.textContent = n; genModeSelect.appendChild(o); });
+  genModeSelect.addEventListener('change', () => { genModeIndex = parseInt(genModeSelect.value, 10); particles = []; updateStatus(); });
+  document.getElementById('genToggleBtn').addEventListener('click', () => { generativeOn = !generativeOn; updateStatus(); });
+
+  function spawnParticles(bass) {
+    const w = sceneCanvas.width, h = sceneCanvas.height;
+    const count = 12 + Math.floor(bass / 8);
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 2 + Math.random() * 6 + bass / 25;
+      particles.push({ x: w / 2, y: h / 2, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, life: 1, hue: (performance.now() / 10 + Math.random() * 60) % 360, size: 4 + Math.random() * 6 });
+    }
+    if (particles.length > 400) particles.splice(0, particles.length - 400);
+  }
+  function drawBars(c, w, h, audio, now) {
+    const barsCount = 48, bw = w / barsCount;
+    for (let i = 0; i < barsCount; i++) {
+      let v;
+      if (analyser) { const idx = Math.floor((i / barsCount) * freqData.length * 0.6); v = freqData[idx]; }
+      else v = 60 + 50 * Math.sin(now / 300 + i * 0.3);
+      const barH = (v / 255) * h * 0.6;
+      const hue = (i / barsCount * 300 + now / 20) % 360;
+      c.fillStyle = `hsla(${hue},90%,55%,0.8)`;
+      c.fillRect(i * bw, h - barH, bw * 0.8, barH);
+      c.fillRect(w - i * bw - bw * 0.8, h - barH, bw * 0.8, barH);
+    }
+  }
+  function drawParticles(c, w, h, audio, now) {
+    if (Math.random() < 0.15) particles.push({ x: w / 2 + (Math.random() - 0.5) * 100, y: h / 2 + (Math.random() - 0.5) * 100, vx: (Math.random() - 0.5) * 2, vy: (Math.random() - 0.5) * 2, life: 1, hue: (now / 20) % 360, size: 3 + Math.random() * 4 });
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.x += p.vx; p.y += p.vy; p.vy += 0.01; p.life -= 0.015;
+      if (p.life <= 0) { particles.splice(i, 1); continue; }
+      c.beginPath(); c.fillStyle = `hsla(${p.hue},100%,60%,${p.life})`; c.arc(p.x, p.y, Math.max(0.1, p.size * p.life), 0, Math.PI * 2); c.fill();
+    }
+  }
+  function drawKaleido(c, w, h, audio, now) {
+    const cx = w / 2, cy = h / 2, radius = Math.min(w, h) * 0.28, symmetry = 8, rotation = now / 4000;
+    const len = timeData ? timeData.length : 64;
+    c.save(); c.translate(cx, cy);
+    for (let s = 0; s < symmetry; s++) {
+      c.save(); c.rotate(rotation + (Math.PI * 2 / symmetry) * s); c.beginPath();
+      for (let i = 0; i < len; i += 2) {
+        const val = timeData ? (timeData[i] - 128) / 128 : Math.sin(i * 0.2 + now / 300) * 0.3;
+        const r = radius + val * radius * 0.6;
+        const angle = (i / len) * Math.PI * 0.5 - Math.PI * 0.25;
+        const x = Math.cos(angle) * r, y = Math.sin(angle) * r;
+        if (i === 0) c.moveTo(x, y); else c.lineTo(x, y);
+      }
+      const hue = (now / 15 + s * 40) % 360;
+      c.strokeStyle = `hsla(${hue},90%,60%,0.85)`; c.lineWidth = 2; c.stroke(); c.restore();
+    }
+    c.restore();
+  }
+  function drawTunnel(c, w, h, audio, now) {
+    const cx = w / 2, cy = h / 2, rings = 14, maxDim = Math.max(w, h);
+    for (let i = 0; i < rings; i++) {
+      const base = i / rings;
+      const pulse = analyser ? (audio.bass + audio.mid) / 255 : (0.5 + 0.5 * Math.sin(now / 400));
+      const r = (base * maxDim * 0.7 + (now / 20) % 40) % (maxDim * 0.75);
+      const hue = (base * 300 + now / 12) % 360;
+      c.beginPath(); c.arc(cx, cy, r, 0, Math.PI * 2);
+      c.strokeStyle = `hsla(${hue},95%,55%,${0.5 - base * 0.3})`; c.lineWidth = 3 + pulse * 6; c.stroke();
+    }
+  }
+  const genModes = [drawBars, drawParticles, drawKaleido, drawTunnel];
+
+  // ---------- Separate VJ output window ----------
+  let outputWin = null;
+  const outBadge = document.getElementById('outBadge');
+  function openOutputWindow() {
+    if (outputWin && !outputWin.closed) { outputWin.focus(); return; }
+    outputWin = window.open('', 'vj_output', 'width=1280,height=720,menubar=no,toolbar=no,location=no,status=no');
+    if (!outputWin) { alert('ポップアップがブロックされました。ブラウザのポップアップ許可設定をご確認ください。'); return; }
+    const doc = outputWin.document;
+    doc.title = 'VJ Output';
+    doc.body.style.margin = '0';
+    doc.body.style.background = '#000';
+    doc.body.style.overflow = 'hidden';
+    doc.body.style.cursor = 'none';
+    const oc = doc.createElement('canvas');
+    // IMPORTANT (perf): the canvas's internal pixel buffer is fixed at the small
+    // internal compositing resolution (finalCanvas's own size, a few hundred KB of
+    // pixels), NOT the real window/display size. It is never resized to match the
+    // window. Instead we let CSS `object-fit:contain` stretch/letterbox it to fill
+    // the window on the GPU compositor — exactly like scaling a <video> element,
+    // essentially free. Previously this redrew (fillRect + drawImage) a canvas sized
+    // to the full physical output resolution (potentially 7555x1101 spanning all
+    // three projectors) every single frame via the 2D API, which is what made the
+    // popup output window feel heavy; that per-frame cost is now gone.
+    oc.width = finalCanvas.width; oc.height = finalCanvas.height;
+    oc.style.position = 'fixed'; oc.style.top = '0'; oc.style.left = '0';
+    oc.style.width = '100%'; oc.style.height = '100%';
+    oc.style.objectFit = 'contain'; // contain-fit, never crop — matches previous letterbox/pillarbox behavior
+    oc.style.imageRendering = 'auto';
+    doc.body.appendChild(oc);
+    popupCanvasEl = oc; // let applyRenderResolution() keep this canvas's buffer in sync with 軽量モード changes
+    const hint = doc.createElement('div');
+    hint.textContent = 'ダブルクリックでフルスクリーン切替';
+    hint.style.cssText = 'position:fixed;bottom:10px;left:10px;color:rgba(255,255,255,.3);font:12px sans-serif;z-index:5;';
+    doc.body.appendChild(hint);
+    outputWin.addEventListener('dblclick', () => {
+      if (!doc.fullscreenElement) doc.documentElement.requestFullscreen().catch(() => {});
+      else doc.exitFullscreen();
+    });
+    outputWin.addEventListener('unload', () => { if (popupCanvasEl === oc) popupCanvasEl = null; });
+    const octx2 = oc.getContext('2d');
+    function loop() {
+      if (!outputWin || outputWin.closed) { if (popupCanvasEl === oc) popupCanvasEl = null; return; }
+      // 1:1 pixel copy at the fixed internal resolution — no scaling/clearing work here;
+      // the window/display-filling scale-up is handled by the CSS object-fit above.
+      octx2.drawImage(finalCanvas, 0, 0);
+      outputWin.requestAnimationFrame(loop);
+    }
+    outputWin.requestAnimationFrame(loop);
+    updateStatus();
+  }
+  document.getElementById('openOutputBtn').addEventListener('click', openOutputWindow);
+
+  // Fallback: expand the in-page monitor if no popup is used
+  let monitorExpanded = false;
+  document.getElementById('expandMonitorBtn').addEventListener('click', () => {
+    monitorExpanded = !monitorExpanded;
+    const mw = document.getElementById('monitorWrap');
+    if (monitorExpanded) {
+      mw.style.position = 'fixed'; mw.style.inset = '0'; mw.style.zIndex = '999'; mw.style.borderRadius = '0';
+      monitor.style.width = '100vw'; monitor.style.height = '100vh'; monitor.style.objectFit = 'contain';
+    } else {
+      mw.style.position = ''; mw.style.inset = ''; mw.style.zIndex = ''; mw.style.borderRadius = '';
+      monitor.style.width = '100%'; monitor.style.height = 'auto'; monitor.style.objectFit = '';
+    }
+  });
+
+  // ---------- MIDI: target registry ----------
+  const paramKnobKeys = ['speed', 'zoom', 'rotation', 'noise', 'color', 'bright', 'fxAmount', 'x'];
+  const paramKnobLabels = { speed: '速度', zoom: '拡大・縮小', rotation: '回転', noise: 'ノイズ量', color: '色の強さ', bright: '明るさ/コントラスト', fxAmount: 'エフェクト量', x: 'X位置' };
+  const NUM_CLIP_TRIGGERS = 12;
+  const TARGETS = {};
+  for (let i = 0; i < NUM_LAYERS; i++) {
+    TARGETS[`layerFader${i}`] = { label: `レイヤー${i + 1} フェーダー`, kind: 'value', apply: (v) => { layers[i].opacity = v; updateStatus(); } };
+    TARGETS[`layerFocus${i}`] = { label: `レイヤー${i + 1} フォーカス選択`, kind: 'trigger', apply: () => setFocusLayer(i) };
+  }
+  paramKnobKeys.forEach((key) => {
+    TARGETS[`knob_${key}`] = { label: `ノブ: ${paramKnobLabels[key]}(フォーカス中レイヤー)`, kind: 'value', apply: (v) => { layers[focusLayer].params[key] = midiToValue(key, Math.round(v * 127)); updateStatus(); } };
+  });
+  for (let i = 0; i < NUM_CLIP_TRIGGERS; i++) {
+    TARGETS[`clipTrigger${i}`] = { label: `クリップ${i + 1}番をフォーカスレイヤーへ`, kind: 'trigger', apply: () => { if (clips[i]) triggerClip(i); } };
+  }
+  ['A', 'B', 'C', 'D'].forEach((name) => {
+    TARGETS[`scene${name}`] = { label: `シーン${name} 呼び出し(動画セット${name})`, kind: 'trigger', apply: () => recallScene(name) };
+  });
+  TARGETS.global_strobe = { label: 'ストロボ ON/OFF', kind: 'toggle', apply: () => { autoStrobe = !autoStrobe; updateStatus(); } };
+  TARGETS.global_invert = { label: '色反転 ON/OFF(グローバル)', kind: 'toggle', apply: () => { effects.invert = !effects.invert; updateStatus(); } };
+  TARGETS.global_noise = { label: 'ノイズ ON/OFF(グローバル)', kind: 'toggle', apply: () => { effects.noiseOverlay = !effects.noiseOverlay; updateStatus(); } };
+  TARGETS.global_blackout = { label: 'ブラックアウト切替', kind: 'trigger', apply: () => toggleFadeBlack() };
+  TARGETS.global_flash = { label: '手動フラッシュ', kind: 'trigger', apply: () => { flashAlpha = 1; } };
+  TARGETS.global_tap = { label: 'BPM TAP', kind: 'trigger', apply: () => { document.getElementById('tapBtn').click(); } };
+
+  // ---------- MIDI: mapping storage ----------
+  let midiMappings = {}; // targetId -> {type:'cc'|'note', number}
+  let reverseMap = {};   // "type:number" -> targetId
+  function rebuildReverseMap() {
+    reverseMap = {};
+    Object.keys(midiMappings).forEach((tid) => { const m = midiMappings[tid]; if (m) reverseMap[`${m.type}:${m.number}`] = tid; });
+  }
+  function saveMappingsToStorage() { try { localStorage.setItem('vjconsole_midi_mappings_v1', JSON.stringify(midiMappings)); } catch (e) {} }
+  function loadMappingsFromStorage() {
+    try { const raw = localStorage.getItem('vjconsole_midi_mappings_v1'); if (raw) { midiMappings = JSON.parse(raw); rebuildReverseMap(); } } catch (e) {}
+  }
+  function setMapping(targetId, type, number) {
+    Object.keys(midiMappings).forEach((tid) => { const m = midiMappings[tid]; if (m && m.type === type && m.number === number) delete midiMappings[tid]; });
+    midiMappings[targetId] = { type, number };
+    rebuildReverseMap(); saveMappingsToStorage(); refreshMidiRowLabels();
+  }
+  function clearMapping(targetId) { delete midiMappings[targetId]; rebuildReverseMap(); saveMappingsToStorage(); refreshMidiRowLabels(); }
+
+  // ---------- MIDI: learn mode ----------
+  let learningTargetId = null, learningBtnEl = null;
+  function startLearn(targetId, btnEl) {
+    if (learningBtnEl) learningBtnEl.classList.remove('learning');
+    learningTargetId = targetId; learningBtnEl = btnEl || null;
+    if (btnEl) btnEl.classList.add('learning');
+  }
+  function cancelLearn() { if (learningBtnEl) learningBtnEl.classList.remove('learning'); learningTargetId = null; learningBtnEl = null; }
+
+  // ---------- MIDI: build rows in the UI ----------
+  function addMidiRow(container, targetId) {
+    const t = TARGETS[targetId];
+    const row = document.createElement('div'); row.className = 'midiRow';
+    const label = document.createElement('div'); label.textContent = t.label;
+    const bind = document.createElement('div'); bind.className = 'bindLabel'; bind.id = 'bind_' + targetId; bind.textContent = '未設定';
+    const learnBtn = document.createElement('button'); learnBtn.className = 'small'; learnBtn.textContent = '学習';
+    learnBtn.addEventListener('click', () => startLearn(targetId, learnBtn));
+    const clearBtn = document.createElement('button'); clearBtn.className = 'small'; clearBtn.textContent = '解除';
+    clearBtn.addEventListener('click', () => clearMapping(targetId));
+    row.appendChild(label); row.appendChild(bind); row.appendChild(learnBtn); row.appendChild(clearBtn);
+    container.appendChild(row);
+  }
+  function refreshMidiRowLabels() {
+    Object.keys(TARGETS).forEach((tid) => {
+      const el = document.getElementById('bind_' + tid);
+      if (!el) return;
+      const m = midiMappings[tid];
+      el.textContent = m ? (m.type === 'cc' ? ('CC' + m.number) : ('Note' + m.number)) : '未設定';
+    });
+  }
+  const midiFadersEl = document.getElementById('midiFaders');
+  const midiFocusEl = document.getElementById('midiFocus');
+  const midiKnobsEl = document.getElementById('midiKnobs');
+  const midiClipsEl = document.getElementById('midiClips');
+  const midiScenesEl = document.getElementById('midiScenes');
+  const midiGlobalEl = document.getElementById('midiGlobal');
+  for (let i = 0; i < NUM_LAYERS; i++) addMidiRow(midiFadersEl, `layerFader${i}`);
+  for (let i = 0; i < NUM_LAYERS; i++) addMidiRow(midiFocusEl, `layerFocus${i}`);
+  paramKnobKeys.forEach((key) => addMidiRow(midiKnobsEl, `knob_${key}`));
+  for (let i = 0; i < NUM_CLIP_TRIGGERS; i++) addMidiRow(midiClipsEl, `clipTrigger${i}`);
+  ['A', 'B', 'C', 'D'].forEach((name) => addMidiRow(midiScenesEl, `scene${name}`));
+  ['global_strobe', 'global_invert', 'global_noise', 'global_blackout', 'global_flash', 'global_tap'].forEach((id) => addMidiRow(midiGlobalEl, id));
+
+  // ---------- MIDI: wizard (guided bulk-learn, since real note/CC numbers vary per device/mode) ----------
+  let wizardActive = false, wizardQueue = [], wizardIndex = 0;
+  const wizardBox = document.getElementById('wizardBox');
+  const wizardTextEl = document.getElementById('wizardText');
+  function startWizard(ids) {
+    wizardQueue = ids.slice(); wizardIndex = 0; wizardActive = true;
+    wizardBox.style.display = 'block';
+    wizardShowCurrent();
+  }
+  function wizardShowCurrent() {
+    if (wizardIndex >= wizardQueue.length) { endWizard(); return; }
+    const tid = wizardQueue[wizardIndex];
+    wizardTextEl.textContent = `[${wizardIndex + 1}/${wizardQueue.length}] 「${TARGETS[tid].label}」に割り当てたいパッド/フェーダー/ノブを押す・動かしてください`;
+    learningTargetId = tid; learningBtnEl = null;
+  }
+  function wizardAdvance() { wizardIndex++; wizardShowCurrent(); }
+  function endWizard() { wizardActive = false; wizardBox.style.display = 'none'; cancelLearn(); }
+  document.getElementById('wizardSkipBtn').addEventListener('click', () => { if (wizardActive) wizardAdvance(); });
+  document.getElementById('wizardCancelBtn').addEventListener('click', endWizard);
+  document.getElementById('wizardLaunchpadBtn').addEventListener('click', () => {
+    startWizard(['sceneA', 'sceneB', 'sceneC', 'sceneD', 'global_strobe', 'global_invert', 'global_noise', 'global_blackout']);
+  });
+  document.getElementById('wizardNanoBtn').addEventListener('click', () => {
+    const ids = [];
+    for (let i = 0; i < NUM_LAYERS; i++) ids.push(`layerFader${i}`);
+    paramKnobKeys.forEach((k) => ids.push(`knob_${k}`));
+    for (let i = 0; i < NUM_LAYERS; i++) ids.push(`layerFocus${i}`);
+    startWizard(ids);
+  });
+  document.getElementById('nanoPresetBtn').addEventListener('click', () => {
+    const faderCC = [0, 1, 2, 3, 4, 5];
+    faderCC.forEach((cc, i) => setMapping(`layerFader${i}`, 'cc', cc));
+    const knobCC = [16, 17, 18, 19, 20, 21, 22, 23];
+    paramKnobKeys.forEach((k, i) => setMapping(`knob_${k}`, 'cc', knobCC[i]));
+    const recCC = [64, 65, 66, 67, 68, 69];
+    recCC.forEach((cc, i) => setMapping(`layerFocus${i}`, 'cc', cc));
+    alert('nanoKONTROL2の工場出荷時CC割り当て(推定: フェーダー=CC0-5, ノブ=CC16-23, RECボタン=CC64-69)を読み込みました。機器側でCC番号を変更済みの場合は「学習」で個別に上書きしてください。');
+  });
+
+  // ---------- MIDI: export / import ----------
+  document.getElementById('midiExportBtn').addEventListener('click', () => {
+    const blob = new Blob([JSON.stringify(midiMappings, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'vj_console_midi_map.json'; a.click();
+    URL.revokeObjectURL(url);
+  });
+  const midiImportFile = document.getElementById('midiImportFile');
+  document.getElementById('midiImportBtn').addEventListener('click', () => midiImportFile.click());
+  midiImportFile.addEventListener('change', (e) => {
+    const file = e.target.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try { midiMappings = JSON.parse(reader.result); rebuildReverseMap(); saveMappingsToStorage(); refreshMidiRowLabels(); }
+      catch (err) { alert('読み込みに失敗しました: ' + err.message); }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  });
+  document.getElementById('midiClearBtn').addEventListener('click', () => {
+    if (confirm('すべてのMIDI割り当てを解除しますか?')) { midiMappings = {}; rebuildReverseMap(); saveMappingsToStorage(); refreshMidiRowLabels(); }
+  });
+
+  // ---------- MIDI: Web MIDI API wiring ----------
+  let midiAccessObj = null;
+  const midiStatusEl = document.getElementById('midiStatus');
+  function attachInputs() {
+    if (!midiAccessObj) return;
+    let count = 0; const names = [];
+    midiAccessObj.inputs.forEach((input) => { input.onmidimessage = handleMIDIMessage; count++; names.push(input.name || 'MIDI Device'); });
+    midiStatusEl.textContent = count ? `接続中: ${names.join(', ')}` : 'MIDI機器が見つかりません(接続後に再スキャンしてください)';
+    midiStatusEl.classList.toggle('ok', count > 0);
+  }
+  function initMIDI() {
+    if (!navigator.requestMIDIAccess) { midiStatusEl.textContent = 'このブラウザはWeb MIDIに未対応です(Chrome/Edge推奨)'; return; }
+    navigator.requestMIDIAccess({ sysex: false }).then((access) => {
+      midiAccessObj = access;
+      attachInputs();
+      access.onstatechange = attachInputs;
+    }).catch((err) => { midiStatusEl.textContent = 'MIDIアクセスが許可されませんでした: ' + err.message; });
+  }
+  document.getElementById('midiRefreshBtn').addEventListener('click', () => { if (midiAccessObj) attachInputs(); else initMIDI(); });
+
+  function handleMIDIMessage(e) {
+    const data = e.data;
+    if (!data || data.length < 2) return;
+    const status = data[0], d1 = data[1], d2 = data.length > 2 ? data[2] : 0;
+    const cmd = status & 0xF0;
+    let type = null, number = null, value01 = 0, isPress = false;
+    if (cmd === 0xB0) { type = 'cc'; number = d1; value01 = d2 / 127; isPress = d2 > 0; }
+    else if (cmd === 0x90) { if (d2 === 0) return; type = 'note'; number = d1; value01 = d2 / 127; isPress = true; }
+    else return;
+
+    if (learningTargetId) {
+      setMapping(learningTargetId, type, number);
+      const doneId = learningTargetId;
+      cancelLearn();
+      if (wizardActive) wizardAdvance();
+      return;
+    }
+    const targetId = reverseMap[`${type}:${number}`];
+    if (!targetId) return;
+    const t = TARGETS[targetId];
+    if (!t) return;
+    if (t.kind === 'value') t.apply(value01);
+    else if (isPress) t.apply(value01);
+  }
+
+  loadMappingsFromStorage();
+  refreshMidiRowLabels();
+  initMIDI();
+
+  // ---------- Clip grid dot refresh (cheap; avoids rebuilding the video elements' DOM every frame) ----------
+  function refreshClipDots() {
+    const tiles = clipGridEl.querySelectorAll('.clipTile');
+    tiles.forEach((tile) => {
+      const i = parseInt(tile.dataset.index, 10);
+      const dotsEl = tile.querySelector('.onLayers');
+      if (!dotsEl) return;
+      dotsEl.innerHTML = '';
+      layers.forEach((ly, li) => {
+        if (ly.clipIndex === i) { const d = document.createElement('span'); d.style.background = LAYER_COLORS[li]; dotsEl.appendChild(d); }
+      });
+    });
+  }
+
+  // ---------- Status sync (GUI <-> state) ----------
+  const focusLabelEl = document.getElementById('focusLabel');
+  const meterBar = document.getElementById('meterBar');
+  const beatDot = document.getElementById('beatDot');
+  const genToggleBtn = document.getElementById('genToggleBtn');
+  const genModeSelectEl = document.getElementById('genModeSelect');
+  const playPauseBtnEl = document.getElementById('playPauseBtn');
+
+  function updateStatus() {
+    layers.forEach((ly, i) => {
+      const els = layerRowEls[i];
+      if (!els) return;
+      els.row.classList.toggle('focused', i === focusLayer);
+      els.nameEl.textContent = ly.clipIndex >= 0 && clips[ly.clipIndex] ? clips[ly.clipIndex].name : '(未読込)';
+      els.opacityEl.value = Math.round(ly.opacity * 100);
+      els.blendEl.value = ly.blend;
+    });
+    focusLabelEl.textContent = `(レイヤー${focusLayer + 1})`;
+    focusLabelEl.style.color = LAYER_COLORS[focusLayer];
+
+    const fp = layers[focusLayer].params;
+    Object.keys(paramSliderIds).forEach((key) => {
+      const el = document.getElementById(paramSliderIds[key]);
+      if (document.activeElement !== el) el.value = valueToMidi(key, fp[key]);
+      document.getElementById(paramValueIds[key]).textContent = PARAM_DEFS[key].format(fp[key]);
+      if (knobRenderers[key]) knobRenderers[key]();
+    });
+    pFxTypeEl.value = fp.fxType;
+
+    genToggleBtn.classList.toggle('active', generativeOn);
+    genToggleBtn.textContent = 'ジェネラティブ: ' + (generativeOn ? 'ON' : 'OFF');
+    genModeSelectEl.value = genModeIndex;
+    micToggleBtn.classList.toggle('active', micEnabled);
+    micToggleBtn.textContent = 'マイク: ' + (micEnabled ? 'ON' : 'OFF');
+    strobeBtn.classList.toggle('active', autoStrobe);
+    effectChipsEl.querySelectorAll('.chip').forEach((b) => b.classList.toggle('active', effects[b.dataset.fx]));
+    outBadge.textContent = (outputWin && !outputWin.closed) ? '出力画面: 接続中' : '出力画面: 未接続';
+    outBadge.style.color = (outputWin && !outputWin.closed) ? '#4ade80' : 'var(--magenta)';
+    playPauseBtnEl.classList.toggle('active', globalPaused);
+    playPauseBtnEl.textContent = globalPaused ? '再生' : '一時停止';
+    refreshClipDots();
+  }
+  updateStatus();
+
+  // ---------- Keyboard ----------
+  window.addEventListener('keydown', (e) => {
+    const tag = (e.target && e.target.tagName) || '';
+    if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return; // don't steal typing from form fields
+    const k = e.key;
+    if (k >= '0' && k <= '9') {
+      const idx = k === '0' ? 9 : parseInt(k, 10) - 1;
+      if (clips[idx]) triggerClip(idx);
+      return;
+    }
+    switch (k) {
+      case 'ArrowUp': e.preventDefault(); layers[focusLayer].opacity = clamp(layers[focusLayer].opacity + 0.05, 0, 1); updateStatus(); return;
+      case 'ArrowDown': e.preventDefault(); layers[focusLayer].opacity = clamp(layers[focusLayer].opacity - 0.05, 0, 1); updateStatus(); return;
+      case 'Tab': e.preventDefault(); setFocusLayer((focusLayer + (e.shiftKey ? -1 + NUM_LAYERS : 1)) % NUM_LAYERS); return;
+      case ' ': e.preventDefault(); togglePlay(); return;
+      case 'Escape': resetEffects(); return;
+    }
+    switch (k.toLowerCase()) {
+      case 'b': cycleBlend(focusLayer); break;
+      case 'g': generativeOn = !generativeOn; updateStatus(); break;
+      case 'v': genModeIndex = (genModeIndex + 1) % genModes.length; particles = []; updateStatus(); break;
+      case 'm': toggleMic(); break;
+      case 'i': effects.invert = !effects.invert; updateStatus(); break;
+      case 'u': effects.hueSpin = !effects.hueSpin; updateStatus(); break;
+      case 'y': effects.psychedelic = !effects.psychedelic; updateStatus(); break;
+      case 'k': effects.blur = !effects.blur; updateStatus(); break;
+      case 'p': effects.pixelate = !effects.pixelate; updateStatus(); break;
+      case 'x': effects.mirror = !effects.mirror; updateStatus(); break;
+      case 't': effects.trail = !effects.trail; updateStatus(); break;
+      case 's': autoStrobe = !autoStrobe; updateStatus(); break;
+      case 'z': flashAlpha = 1; break;
+      case 'q': toggleFadeBlack(); break;
+      case 'f': openOutputWindow(); break;
+    }
+  });
+
+  // ---------- Per-layer draw (transform + per-layer color/noise/fx baked via ctx.filter) ----------
+  function drawLayer(ly, w, h, now) {
+    lctx.clearRect(0, 0, w, h);
+    const p = ly.params;
+    lctx.save();
+    lctx.translate(w / 2 + p.x * w * 0.5, h / 2 + p.y * h * 0.5);
+    lctx.rotate(p.rotation * Math.PI / 180);
+    lctx.scale(p.zoom, p.zoom);
+    lctx.translate(-w / 2, -h / 2);
+
+    const filters = [];
+    if (p.color !== 1) filters.push(`saturate(${p.color})`);
+    if (p.bright !== 1) filters.push(`brightness(${p.bright}) contrast(${lerp(1, 1.4, clamp(p.bright - 1, 0, 1))})`);
+    if (p.fxType === 'invert' && p.fxAmount > 0.01) filters.push(`invert(${p.fxAmount})`);
+    if (p.fxType === 'hue' && p.fxAmount > 0.01) filters.push(`hue-rotate(${p.fxAmount * 360}deg)`);
+    lctx.filter = filters.length ? filters.join(' ') : 'none';
+
+    if (p.fxType === 'pixelate' && p.fxAmount > 0.01) drawPixelated(ly.video, lctx, w, h, p.fxAmount);
+    else drawCover(lctx, ly.video, w, h);
+    lctx.filter = 'none';
+    lctx.restore();
+
+    if (p.fxType === 'mirror' && p.fxAmount > 0.01) {
+      lctx.save();
+      lctx.globalAlpha = clamp(p.fxAmount, 0, 1);
+      const halfW = Math.floor(w / 2);
+      lctx.translate(w, 0); lctx.scale(-1, 1);
+      lctx.drawImage(layerScratch, 0, 0, halfW, h, halfW, 0, halfW, h);
+      lctx.restore();
+    }
+    if (p.fxType === 'glitch' && p.fxAmount > 0.01) {
+      const slices = 5;
+      for (let s = 0; s < slices; s++) {
+        const sy = Math.floor((h / slices) * s);
+        const sh = Math.floor(h / slices);
+        const off = (Math.random() - 0.5) * p.fxAmount * w * 0.15;
+        lctx.drawImage(layerScratch, 0, sy, w, sh, off, sy, w, sh);
+      }
+    }
+    if (p.noise > 0.01) {
+      lctx.save();
+      lctx.globalAlpha = clamp(p.noise, 0, 1) * 0.5;
+      lctx.globalCompositeOperation = 'overlay';
+      const nx = Math.floor(Math.random() * 20), ny = Math.floor(Math.random() * 20);
+      lctx.drawImage(noiseTex, -nx, -ny, w + 40, h + 40);
+      lctx.restore();
+    }
+    return layerScratch;
+  }
+
+  // ---------- Render loop ----------
+  function render() {
+    requestAnimationFrame(render);
+    const w = sceneCanvas.width, h = sceneCanvas.height;
+    const now = performance.now();
+
+    if (effects.trail) { ctx.fillStyle = 'rgba(0,0,0,0.10)'; ctx.fillRect(0, 0, w, h); }
+    else { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, h); }
+
+    // Composite in stackOrder (back to front) rather than raw layer-identity order, so the
+    // reorder buttons in the layer list actually change what's drawn on top of what.
+    stackOrder.forEach((li) => {
+      const ly = layers[li];
+      if (!ly.video || ly.opacity <= 0.003) return;
+      // apply per-layer speed on top of the global BPM-derived rate
+      const targetRate = clamp((bpm / baseBpm) * ly.params.speed, 0.1, 8);
+      if (Math.abs(ly.video.playbackRate - targetRate) > 0.01) ly.video.playbackRate = targetRate;
+      const drawn = drawLayer(ly, w, h, now);
+      ctx.save();
+      ctx.globalAlpha = clamp(ly.opacity, 0, 1);
+      ctx.globalCompositeOperation = ly.blend;
+      ctx.drawImage(drawn, 0, 0, w, h);
+      ctx.restore();
+    });
+
+    const audio = analyzeAudio(now);
+    updateBeat(audio, now);
+
+    if (generativeOn) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; genModes[genModeIndex](ctx, w, h, audio, now); ctx.restore(); }
+
+    // Build global filter string baked into pixel data (so it survives cross-window drawImage)
+    const filters = [];
+    if (effects.invert) filters.push('invert(1)');
+    if (effects.hueSpin) { hueDeg = (hueDeg + 3) % 360; filters.push(`hue-rotate(${hueDeg}deg)`); }
+    if (effects.psychedelic) filters.push('saturate(3) contrast(1.3)');
+    if (effects.blur) filters.push('blur(3px)');
+
+    octx.clearRect(0, 0, w, h);
+    octx.filter = filters.length ? filters.join(' ') : 'none';
+    if (effects.pixelate) drawPixelated(sceneCanvas, octx, w, h, 0.06);
+    else octx.drawImage(sceneCanvas, 0, 0, w, h);
+    if (effects.mirror) {
+      const halfW = Math.floor(w / 2);
+      octx.save(); octx.translate(w, 0); octx.scale(-1, 1);
+      octx.drawImage(sceneCanvas, 0, 0, halfW, h, halfW, 0, halfW, h);
+      octx.restore();
+    }
+    octx.filter = 'none';
+
+    if (effects.noiseOverlay) {
+      octx.save(); octx.globalAlpha = 0.35; octx.globalCompositeOperation = 'overlay';
+      const nx = Math.floor(Math.random() * 30), ny = Math.floor(Math.random() * 30);
+      octx.drawImage(noiseTex, -nx, -ny, w + 60, h + 60);
+      octx.restore();
+      if (Math.random() < 0.2) regenNoise();
+    }
+
+    if (flashAlpha > 0.01) { octx.fillStyle = `rgba(255,255,255,${flashAlpha})`; octx.fillRect(0, 0, w, h); flashAlpha *= 0.82; }
+    if (masterFade < 0.999) { octx.fillStyle = `rgba(0,0,0,${1 - masterFade})`; octx.fillRect(0, 0, w, h); }
+
+    // Compose the final masked output: fixed 7555x1101 real-world canvas with the active
+    // 4755x1101 region flush-left and the remaining right-hand section forced solid black
+    // (the unused 3rd projector panel at the venue).
+    fctx.fillStyle = '#000';
+    fctx.fillRect(0, 0, FINAL_W, FINAL_H);
+    fctx.drawImage(outputCanvas, 0, 0);
+
+    // mirror to the in-page monitor preview
+    mctx.drawImage(finalCanvas, 0, 0, monitor.width, monitor.height);
+
+    meterBar.style.width = clamp(audio.volume / 200 * 100, 0, 100) + '%';
+    beatDot.style.opacity = (0.15 + beatPulse * 0.85).toFixed(2);
+  }
+  requestAnimationFrame(render);
+})();
+</script>
+</body>
+</html>
